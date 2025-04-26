@@ -12,6 +12,7 @@ module.exports = {
     "dist",
     "vite.config.ts",
     "src/components/vendor",
+    "node_modules/**",
   ],
   parser: "@typescript-eslint/parser",
   parserOptions: {

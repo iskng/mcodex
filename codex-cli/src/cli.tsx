@@ -180,6 +180,20 @@ const cli = meow(
         description: `Run in full-context editing approach. The model is given the whole code
           directory as context and performs changes in one go without acting.`,
       },
+      // ===========================================================================
+      // SERVER MODE FLAG
+      // ===========================================================================
+      // Add a flag to run the CLI in server mode for programmatic interaction.
+      server: {
+        type: "boolean",
+        description:
+          "Run the Codex CLI in server mode (IPC via HTTP/WebSocket)",
+      },
+      port: {
+        type: "number",
+        description:
+          "Specify the port for server mode (default: find available port)",
+      },
     },
   },
 );
@@ -415,21 +429,65 @@ const approvalPolicy: ApprovalPolicy =
       ? AutoApprovalMode.AUTO_EDIT
       : config.approvalMode || AutoApprovalMode.SUGGEST;
 
-const instance = render(
-  <App
-    prompt={prompt}
-    config={config}
-    rollout={rollout}
-    imagePaths={imagePaths}
-    approvalPolicy={approvalPolicy}
-    additionalWritableRoots={additionalWritableRoots}
-    fullStdout={Boolean(cli.flags.fullStdout)}
-  />,
-  {
-    patchConsole: process.env["DEBUG"] ? false : true,
-  },
-);
-setInkRenderer(instance);
+// ===========================================================================
+// SERVER MODE CHECK vs INTERACTIVE MODE
+// ===========================================================================
+// If the --server flag is provided, start the IPC server instead of the
+// interactive terminal UI. Otherwise, render the standard Ink-based UI.
+if (cli.flags.server) {
+  // --- SERVER MODE ---
+  // Dynamically import the server function only when needed.
+  // Ensure the path is correct relative to the build output structure.
+  const { startIPCServer } = await import("./ipc-server.js");
+
+  // Check for the optional --port flag
+  let requestedPort: number | undefined = cli.flags.port;
+
+  // Validate port if provided
+  if (requestedPort !== undefined) {
+    if (
+      !Number.isInteger(requestedPort) ||
+      requestedPort < 0 ||
+      requestedPort > 65535
+    ) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `Error: Invalid port number specified: ${requestedPort}. Port must be an integer between 0 and 65535.`,
+      );
+      process.exit(1);
+    }
+  } else {
+    // If --port is not provided, use 0 for dynamic port assignment
+    requestedPort = 0;
+  }
+
+  // console.log("Starting Codex in server mode..."); // Optional: Add logging if needed
+  startIPCServer(
+    config,
+    approvalPolicy,
+    additionalWritableRoots,
+    requestedPort,
+  ); // Pass config, policies, and requested port
+  // Keep the process alive for the server; don't exit immediately.
+  // The server module (ipc-server.ts) handles graceful shutdown via SIGINT/SIGTERM internally.
+} else {
+  // --- INTERACTIVE MODE (DEFAULT) ---
+  const instance = render(
+    <App
+      prompt={prompt}
+      config={config}
+      rollout={rollout}
+      imagePaths={imagePaths}
+      approvalPolicy={approvalPolicy}
+      additionalWritableRoots={additionalWritableRoots}
+      fullStdout={Boolean(cli.flags.fullStdout)}
+    />,
+    {
+      patchConsole: process.env["DEBUG"] ? false : true,
+    },
+  );
+  setInkRenderer(instance);
+} // End of server mode check vs interactive mode
 
 function formatResponseItemForQuietMode(item: ResponseItem): string {
   if (!PRETTY_PRINT) {

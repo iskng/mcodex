@@ -1,3 +1,6 @@
+git fetch upstream
+git rebase upstream/main
+
 <h1 align="center">OpenAI Codex CLI</h1>
 <p align="center">Lightweight coding agent that runs in your terminal</p>
 
