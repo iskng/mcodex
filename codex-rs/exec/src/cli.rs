@@ -67,6 +67,15 @@ pub struct Cli {
     #[arg(long = "json", alias = "experimental-json", default_value_t = false)]
     pub json: bool,
 
+    /// Print all protocol events to stdout as JSONL (matches the interactive UI stream).
+    #[arg(
+        long = "all-json",
+        alias = "experimental-all-json",
+        default_value_t = false,
+        conflicts_with = "json"
+    )]
+    pub all_json: bool,
+
     /// Specifies file where the last message from the agent should be written.
     #[arg(long = "output-last-message", short = 'o', value_name = "FILE")]
     pub last_message_file: Option<PathBuf>,
