@@ -10,6 +10,7 @@ use crate::error::Result as CodexResult;
 use crate::protocol::Event;
 use crate::protocol::EventMsg;
 use crate::protocol::SessionConfiguredEvent;
+use crate::rollout::RolloutPersistMode;
 use crate::rollout::RolloutRecorder;
 use codex_protocol::ConversationId;
 use codex_protocol::items::TurnItem;
@@ -36,14 +37,24 @@ pub struct ConversationManager {
     conversations: Arc<RwLock<HashMap<ConversationId, Arc<CodexConversation>>>>,
     auth_manager: Arc<AuthManager>,
     session_source: SessionSource,
+    rollout_persist_mode: RolloutPersistMode,
 }
 
 impl ConversationManager {
     pub fn new(auth_manager: Arc<AuthManager>, session_source: SessionSource) -> Self {
+        Self::new_with_persist_mode(auth_manager, session_source, RolloutPersistMode::Filtered)
+    }
+
+    pub fn new_with_persist_mode(
+        auth_manager: Arc<AuthManager>,
+        session_source: SessionSource,
+        rollout_persist_mode: RolloutPersistMode,
+    ) -> Self {
         Self {
             conversations: Arc::new(RwLock::new(HashMap::new())),
             auth_manager,
             session_source,
+            rollout_persist_mode,
         }
     }
 
@@ -74,6 +85,7 @@ impl ConversationManager {
             auth_manager,
             InitialHistory::New,
             self.session_source,
+            self.rollout_persist_mode,
         )
         .await?;
         self.finalize_spawn(codex, conversation_id).await
@@ -132,7 +144,14 @@ impl ConversationManager {
         let CodexSpawnOk {
             codex,
             conversation_id,
-        } = Codex::spawn(config, auth_manager, initial_history, self.session_source).await?;
+        } = Codex::spawn(
+            config,
+            auth_manager,
+            initial_history,
+            self.session_source,
+            self.rollout_persist_mode,
+        )
+        .await?;
         self.finalize_spawn(codex, conversation_id).await
     }
 
@@ -166,7 +185,14 @@ impl ConversationManager {
         let CodexSpawnOk {
             codex,
             conversation_id,
-        } = Codex::spawn(config, auth_manager, history, self.session_source).await?;
+        } = Codex::spawn(
+            config,
+            auth_manager,
+            history,
+            self.session_source,
+            self.rollout_persist_mode,
+        )
+        .await?;
 
         self.finalize_spawn(codex, conversation_id).await
     }

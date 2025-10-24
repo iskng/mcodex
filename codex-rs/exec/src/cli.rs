@@ -76,6 +76,14 @@ pub struct Cli {
     )]
     pub all_json: bool,
 
+    /// Persist all session events to the rollout log (matches the interactive UI stream).
+    #[arg(
+        long = "all-persist",
+        alias = "experimental-all-persist",
+        default_value_t = false
+    )]
+    pub all_persist: bool,
+
     /// Specifies file where the last message from the agent should be written.
     #[arg(long = "output-last-message", short = 'o', value_name = "FILE")]
     pub last_message_file: Option<PathBuf>,

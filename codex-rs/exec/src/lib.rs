@@ -26,6 +26,7 @@ use codex_core::protocol::EventMsg;
 use codex_core::protocol::Op;
 use codex_core::protocol::SessionSource;
 use codex_core::protocol::TaskCompleteEvent;
+use codex_core::rollout::RolloutPersistMode;
 use codex_ollama::DEFAULT_OSS_MODEL;
 use codex_protocol::config_types::SandboxMode;
 use codex_protocol::user_input::UserInput;
@@ -69,6 +70,7 @@ pub async fn run_main(cli: Cli, codex_linux_sandbox_exe: Option<PathBuf>) -> any
         last_message_file,
         json: json_mode,
         all_json: all_json_mode,
+        all_persist,
         sandbox_mode: sandbox_mode_cli_arg,
         prompt,
         output_schema: output_schema_path,
@@ -257,7 +259,11 @@ pub async fn run_main(cli: Cli, codex_linux_sandbox_exe: Option<PathBuf>) -> any
     }
 
     let auth_manager = AuthManager::shared(config.codex_home.clone(), true);
-    let conversation_manager = ConversationManager::new(auth_manager.clone(), SessionSource::Exec);
+    let conversation_manager = ConversationManager::new_with_persist_mode(
+        auth_manager.clone(),
+        SessionSource::Exec,
+        rollout_persist_mode,
+    );
 
     // Handle resume subcommand by resolving a rollout path and using explicit resume API.
     let NewConversation {
@@ -438,3 +444,9 @@ fn load_output_schema(path: Option<PathBuf>) -> Option<Value> {
         }
     }
 }
+    let rollout_persist_mode = if all_persist {
+        RolloutPersistMode::All
+    } else {
+        RolloutPersistMode::Filtered
+    };
+
