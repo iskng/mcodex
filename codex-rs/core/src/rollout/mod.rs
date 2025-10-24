@@ -13,9 +13,12 @@ pub mod recorder;
 
 pub use codex_protocol::protocol::SessionMeta;
 pub use list::find_conversation_path_by_id_str;
-pub use recorder::RolloutPersistMode;
 pub use recorder::RolloutRecorder;
 pub use recorder::RolloutRecorderParams;
+
+pub fn set_persist_all_rollouts(enabled: bool) {
+    policy::set_persist_all(enabled);
+}
 
 #[cfg(test)]
 pub mod tests;

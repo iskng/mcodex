@@ -1,10 +1,24 @@
 use crate::protocol::EventMsg;
 use crate::protocol::RolloutItem;
 use codex_protocol::models::ResponseItem;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static PERSIST_ALL: AtomicBool = AtomicBool::new(false);
+
+pub(crate) fn set_persist_all(enabled: bool) {
+    PERSIST_ALL.store(enabled, Ordering::Relaxed);
+}
+
+fn persist_all_enabled() -> bool {
+    PERSIST_ALL.load(Ordering::Relaxed)
+}
 
 /// Whether a rollout `item` should be persisted in rollout files.
 #[inline]
 pub(crate) fn is_persisted_response_item(item: &RolloutItem) -> bool {
+    if persist_all_enabled() {
+        return true;
+    }
     match item {
         RolloutItem::ResponseItem(item) => should_persist_response_item(item),
         RolloutItem::EventMsg(ev) => should_persist_event_msg(ev),

@@ -95,7 +95,6 @@ use crate::protocol::TokenCountEvent;
 use crate::protocol::TokenUsage;
 use crate::protocol::TurnDiffEvent;
 use crate::protocol::WebSearchBeginEvent;
-use crate::rollout::RolloutPersistMode;
 use crate::rollout::RolloutRecorder;
 use crate::rollout::RolloutRecorderParams;
 use crate::shell;
@@ -159,7 +158,6 @@ impl Codex {
         auth_manager: Arc<AuthManager>,
         conversation_history: InitialHistory,
         session_source: SessionSource,
-        rollout_persist_mode: RolloutPersistMode,
     ) -> CodexResult<CodexSpawnOk> {
         let (tx_sub, rx_sub) = async_channel::bounded(SUBMISSION_CHANNEL_CAPACITY);
         let (tx_event, rx_event) = async_channel::unbounded();
@@ -438,16 +436,12 @@ impl Session {
                         conversation_id,
                         session_configuration.user_instructions.clone(),
                         session_source,
-                        rollout_persist_mode,
                     ),
                 )
             }
             InitialHistory::Resumed(resumed_history) => (
                 resumed_history.conversation_id,
-                RolloutRecorderParams::resume(
-                    resumed_history.rollout_path.clone(),
-                    rollout_persist_mode,
-                ),
+                RolloutRecorderParams::resume(resumed_history.rollout_path.clone()),
             ),
         };
 
