@@ -43,19 +43,10 @@ use codex_protocol::protocol::SessionSource;
 /// $ jq -C . ~/.codex/sessions/rollout-2025-05-07T17-24-21-5973b6c0-94b8-487b-a530-2aeb6098ae0e.jsonl
 /// $ fx ~/.codex/sessions/rollout-2025-05-07T17-24-21-5973b6c0-94b8-487b-a530-2aeb6098ae0e.jsonl
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RolloutPersistMode {
-    /// Preserve the historical filtered behavior that skips noisy events.
-    Filtered,
-    /// Persist every rollout item exactly as emitted.
-    All,
-}
-
 #[derive(Clone)]
 pub struct RolloutRecorder {
     tx: Sender<RolloutCmd>,
     pub(crate) rollout_path: PathBuf,
-    persist_mode: RolloutPersistMode,
 }
 
 #[derive(Clone)]
@@ -64,11 +55,9 @@ pub enum RolloutRecorderParams {
         conversation_id: ConversationId,
         instructions: Option<String>,
         source: SessionSource,
-        persist_mode: RolloutPersistMode,
     },
     Resume {
         path: PathBuf,
-        persist_mode: RolloutPersistMode,
     },
 }
 
@@ -88,18 +77,16 @@ impl RolloutRecorderParams {
         conversation_id: ConversationId,
         instructions: Option<String>,
         source: SessionSource,
-        persist_mode: RolloutPersistMode,
     ) -> Self {
         Self::Create {
             conversation_id,
             instructions,
             source,
-            persist_mode,
         }
     }
 
-    pub fn resume(path: PathBuf, persist_mode: RolloutPersistMode) -> Self {
-        Self::Resume { path, persist_mode }
+    pub fn resume(path: PathBuf) -> Self {
+        Self::Resume { path }
     }
 }
 
@@ -128,12 +115,11 @@ impl RolloutRecorder {
     /// cannot be created or the rollout file cannot be opened we return the
     /// error so the caller can decide whether to disable persistence.
     pub async fn new(config: &Config, params: RolloutRecorderParams) -> std::io::Result<Self> {
-        let (file, rollout_path, meta, persist_mode) = match params {
+        let (file, rollout_path, meta) = match params {
             RolloutRecorderParams::Create {
                 conversation_id,
                 instructions,
                 source,
-                persist_mode,
             } => {
                 let LogFileInfo {
                     file,
@@ -163,17 +149,15 @@ impl RolloutRecorder {
                         source,
                         model_provider: Some(config.model_provider_id.clone()),
                     }),
-                    persist_mode,
                 )
             }
-            RolloutRecorderParams::Resume { path, persist_mode } => (
+            RolloutRecorderParams::Resume { path } => (
                 tokio::fs::OpenOptions::new()
                     .append(true)
                     .open(&path)
                     .await?,
                 path,
                 None,
-                persist_mode,
             ),
         };
 
@@ -190,35 +174,24 @@ impl RolloutRecorder {
         // driver instead of blocking the runtime.
         tokio::task::spawn(rollout_writer(file, rx, meta, cwd));
 
-        Ok(Self {
-            tx,
-            rollout_path,
-            persist_mode,
-        })
+        Ok(Self { tx, rollout_path })
     }
 
     pub(crate) async fn record_items(&self, items: &[RolloutItem]) -> std::io::Result<()> {
-        let to_persist: Vec<RolloutItem> = match self.persist_mode {
-            RolloutPersistMode::Filtered => {
-                let mut filtered = Vec::new();
-                for item in items {
-                    // Note that function calls may look a bit strange if they are
-                    // "fully qualified MCP tool calls," so we could consider
-                    // reformatting them in that case.
-                    if is_persisted_response_item(item) {
-                        filtered.push(item.clone());
-                    }
-                }
-                filtered
+        let mut filtered = Vec::new();
+        for item in items {
+            // Note that function calls may look a bit strange if they are
+            // "fully qualified MCP tool calls," so we could consider
+            // reformatting them in that case.
+            if is_persisted_response_item(item) {
+                filtered.push(item.clone());
             }
-            RolloutPersistMode::All => items.to_vec(),
-        };
-
-        if to_persist.is_empty() {
+        }
+        if filtered.is_empty() {
             return Ok(());
         }
         self.tx
-            .send(RolloutCmd::AddItems(to_persist))
+            .send(RolloutCmd::AddItems(filtered))
             .await
             .map_err(|e| IoError::other(format!("failed to queue rollout items: {e}")))
     }

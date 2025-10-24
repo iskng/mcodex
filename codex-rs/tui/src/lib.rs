@@ -17,7 +17,7 @@ use codex_core::config::Config;
 use codex_core::config::ConfigOverrides;
 use codex_core::find_conversation_path_by_id_str;
 use codex_core::protocol::AskForApproval;
-use codex_core::rollout::RolloutPersistMode;
+use codex_core::set_persist_all_rollouts;
 use codex_ollama::DEFAULT_OSS_MODEL;
 use codex_protocol::config_types::SandboxMode;
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
@@ -437,13 +437,9 @@ async fn run_ratatui_app(
         resume_picker::ResumeSelection::StartFresh
     };
 
-    let Cli { prompt, images, .. } = cli;
+    set_persist_all_rollouts(cli.all_persist);
 
-    let rollout_persist_mode = if cli.all_persist {
-        RolloutPersistMode::All
-    } else {
-        RolloutPersistMode::Filtered
-    };
+    let Cli { prompt, images, .. } = cli;
 
     let app_result = App::run(
         &mut tui,
@@ -453,7 +449,6 @@ async fn run_ratatui_app(
         prompt,
         images,
         resume_selection,
-        rollout_persist_mode,
         feedback,
     )
     .await;

@@ -79,6 +79,7 @@ pub use rollout::list::ConversationItem;
 pub use rollout::list::ConversationsPage;
 pub use rollout::list::Cursor;
 pub use rollout::list::read_head_for_summary;
+pub use rollout::set_persist_all_rollouts;
 mod function_tool;
 mod state;
 mod tasks;
