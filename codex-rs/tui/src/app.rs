@@ -22,6 +22,7 @@ use codex_core::model_family::find_family_for_model;
 use codex_core::protocol::SessionSource;
 use codex_core::protocol::TokenUsage;
 use codex_core::protocol_config_types::ReasoningEffort as ReasoningEffortConfig;
+use codex_core::rollout::RolloutPersistMode;
 use codex_protocol::ConversationId;
 use color_eyre::eyre::Result;
 use color_eyre::eyre::WrapErr;
@@ -90,15 +91,17 @@ impl App {
         initial_prompt: Option<String>,
         initial_images: Vec<PathBuf>,
         resume_selection: ResumeSelection,
+        rollout_persist_mode: RolloutPersistMode,
         feedback: codex_feedback::CodexFeedback,
     ) -> Result<AppExitInfo> {
         use tokio_stream::StreamExt;
         let (app_event_tx, mut app_event_rx) = unbounded_channel();
         let app_event_tx = AppEventSender::new(app_event_tx);
 
-        let conversation_manager = Arc::new(ConversationManager::new(
+        let conversation_manager = Arc::new(ConversationManager::new_with_persist_mode(
             auth_manager.clone(),
             SessionSource::Cli,
+            rollout_persist_mode,
         ));
 
         let enhanced_keys_supported = tui.enhanced_keys_supported();

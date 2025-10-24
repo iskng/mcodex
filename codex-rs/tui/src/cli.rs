@@ -15,6 +15,14 @@ pub struct Cli {
     #[arg(long = "image", short = 'i', value_name = "FILE", value_delimiter = ',', num_args = 1..)]
     pub images: Vec<PathBuf>,
 
+    /// Persist all session events to the rollout log (matches the interactive UI stream).
+    #[arg(
+        long = "all-persist",
+        alias = "experimental-all-persist",
+        default_value_t = false
+    )]
+    pub all_persist: bool,
+
     // Internal controls set by the top-level `codex resume` subcommand.
     // These are not exposed as user flags on the base `codex` command.
     #[clap(skip)]
